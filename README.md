@@ -1,2 +1,7 @@
 # R_code
-my r_code repository
+
+* data mining
+    수업 실습 업데이트
+
+* machine learning
+    r 실습 업데이트
