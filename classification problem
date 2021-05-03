@@ -1,0 +1,208 @@
+homework3
+
+library(ISLR)
+data(College)
+attach(College)
+dim(College)
+library(MASS)
+library(e1071)
+library(mccr)
+library(MLmetrics)
+
+RNGkind(sample.kind = "Rounding")
+set.seed(1234)
+tran <- sample(dim(College)[1], floor(dim(College)[1]*0.7))
+test <- setdiff(1:nrow(College),  tran)
+
+# 1.
+##glm
+gmodel <- glm(Private~., data=College,family="binomial", subset=tran)
+pred.g <- predict(gmodel, College, type="response")[test]
+yhat.g <- rep(0, length(test))
+yhat.g[pred.g<=0.5]<-1
+yhat.g[pred.g>=0.5]<-2
+mean(yhat.g!=as.numeric(Private[test]))
+
+##lda
+lmodel <- lda(Private~., data=College, subset=tran)
+pred.l <- predict(lmodel, College$Private)$class[test]
+mean(pred.l!=College$Private[test])
+
+##qda
+qmodel <- qda(Private~., data=College, subset=tran)
+pred.q <- predict(qmodel, College$Private)$class[test]
+mean(pred.q!=College$Private[test])
+
+##naiveBayes
+nmodel <- naiveBayes(Private~., data=College, subset=tran)
+pred.n <- predict(nmodel, College)[test]
+mean(pred.n!=College$Private[test])
+
+#2.
+library(ROCR)
+label <- factor(College$Private[test],levels=c("Yes","No"),labels=c("TRUE","FALSE"))
+##glm
+pred.g2 <- prediction(pred.g, label)
+perf <- performance(pred.g2, "tpr", "fpr")
+plot(perf)
+performance(pred.g2, "auc")@y.values
+
+##lda
+post.l <- predict(lmodel, College[test,])
+pred.l2 <- prediction(post.l$posterior[,2], label)
+perf <- performance(pred.l2, "tpr", "fpr")
+plot(perf)
+performance(pred.l2, "auc")@y.values
+
+##qda
+post.q <- predict(qmodel, College[test,])
+pred.q2 <- prediction(post.q$posterior[,2], label)
+perf <- performance(pred.q2, "tpr", "fpr")
+plot(perf)
+performance(pred.q2, "auc")@y.values
+
+##naiveBayes
+pred.n2 <- predict(nmodel, College[test,], type="raw")
+pred.n3 <- prediction(pred.n2[,2], label)
+perf <- performance(pred.n3, "tpr", "fpr")
+plot(perf)
+performance(pred.n3, "auc")@y.values
+
+#3.
+RNGkind(sample.kind = "Rounding")
+set.seed(12345)
+N.lab <- sample(rep(seq(10), length=sum(College$Private[tran]=="No")))
+Y.lab <- sample(rep(seq(10), length=sum(College$Private[tran]=="Yes")))
+gr <- rep(0, length(tran))
+gr[College$Private[tran]=="No"] <- N.lab
+gr[College$Private[tran]=="Yes"] <- Y.lab
+alpha <- seq(0,1,0.01)
+
+num3 <- matrix(NA, length(alpha), 4)
+cv.m[,1] <- alpha
+colnames(num3) <- c("glm", "LDA", "QDA", "NB")
+
+for(i in 1:length(alpha)){
+  cv.k <- matrix(NA, 10, 4)
+  for(k in 1:10){
+    train <- which(gr!=k)
+    tests <- which(gr==k)
+    #fitting
+    model1 <- glm(Private~., data=College, family="binomial", subset=train)
+    model2 <- lda(Private~., data=College, subset=train)
+    model3 <- qda(Private~., data=College, subset=train)
+    model4 <- naiveBayes(Private~., data=College, subset=train)
+    #prediction
+    pred1 <- predict(model1, College, type="response")[tests]
+    pred2 <- predict(model2, College)$posterior[tests]
+    pred3 <- predict(model3, College)$posterior[tests]
+    pred4 <- predict(model4, College, type="raw")[tests]
+    #apply alpha
+    yhat1 <- rep(0, length(tests))
+    yhat1 <- ifelse(pred1<=alpha[i], 1, 2)
+    yhat2 <- rep(0, length(tests))
+    yhat2 <- ifelse(pred2<=alpha[i], 2, 1)
+    yhat3 <- rep(0, length(tests))
+    yhat3 <- ifelse(pred3<=alpha[i], 2, 1)
+    yhat4 <- rep(0, length(tests))
+    yhat4 <- ifelse(pred4<=alpha[i], 2, 1)
+    for(j in 1:4){
+      yhat <- get(paste0('yhat', j, sep=""))
+      cv.k[k,j] <- mean(yhat!=as.numeric(College$Private[tests]))
+    }
+  }
+  for(j in 1:4){
+    num3[i,j] <- mean(cv.k[,j])
+  }
+}
+
+M.E <- matrix(NA, 2, 4)
+colnames(M.E) <- c("glm", "lda", "qda", "NB")
+for(j in 1:4){
+  M.E[1,j] <- min(num3[,j])
+  alpha.score <- which(num3[,j]==min(num3[,j]))
+  M.E[2,j] <- (sum(alpha.score)-length(alpha.score))/length(alpha.score)*0.01
+}
+
+
+#4.
+mcc.m <- matrix(NA, length(alpha), 4)
+rownames(mcc.m) <- alpha
+colnames(mcc.m) <- c("glm", "LDA", "QDA", "NB")
+
+model1 <- glm(Private~., data=College, subset=tran, family="binomial")
+model2 <- lda(Private~., data=College, subset=tran)
+model3 <- qda(Private~., data=College, subset=tran)
+model4 <- naiveBayes(Private~., data=College, subset=tran)
+pred1 <- predict(model1, College, type="response")[test]
+pred2 <- predict(model2, College)$posterior[test]
+pred3 <- predict(model3, College)$posterior[test]
+pred4 <- predict(model4, College, type="raw")[test]
+for(i in 1:length(alpha)){
+  yhat1 <- ifelse(pred1<=alpha[i], "No", "Yes")
+  yhat2 <- ifelse(pred2<=alpha[i], "Yes", "No")
+  yhat3 <- ifelse(pred3<=alpha[i], "Yes", "No")
+  yhat4 <- ifelse(pred4<=alpha[i], "Yes", "No")
+  tb1 <- table(yhat1,College$Private[test])
+  tb2 <- table(yhat2,College$Private[test])
+  tb3 <- table(yhat3,College$Private[test])
+  tb4 <- table(yhat4,College$Private[test])
+  for(j in 1:4){
+    if(nrow(get(paste0('tb',j)))==2 && ncol(get(paste0('tb',j)))==2){
+      act <- ifelse(College$Private[test]=="Yes",1,0)
+      pre <- ifelse(get(paste0('yhat',j))=="Yes",1,0)
+      mcc.m[i,j] <- mccr(act,pre)
+    }
+    else mcc.m[i,j] <- 0
+  }
+}
+
+MMC <- matrix(NA, 2, 4)
+colnames(MMC) <- c("glm", "lda", "qda", "NB")
+rownames(MMC) <- c("MCC", "alpha")
+for(j in 1:4){
+  MMC[1,j] <- max(mcc.m[,j])
+  alpha.score <- which(mcc.m[,j]==max(mcc.m[,j]))
+  MMC[2,j] <- (sum(alpha.score)-length(alpha.score))/length(alpha.score)*0.01
+}
+
+#5.
+f1 <- matrix(NA,length(alpha),4)
+rownames(f1) <- alpha
+colnames(f1) <- c("glm", "LDA", "QDA", "NB")
+
+model1 <- glm(Private~., data=College, subset=tran, family="binomial")
+model2 <- lda(Private~., data=College, subset=tran)
+model3 <- qda(Private~., data=College, subset=tran)
+model4 <- naiveBayes(Private~., data=College, subset=tran)
+pred1 <- predict(model1, College, type="response")[test]
+pred2 <- predict(model2, College)$posterior[test]
+pred3 <- predict(model3, College)$posterior[test]
+pred4 <- predict(model4, College, type="raw")[test]
+for(i in 1:length(alpha)){
+  yhat1 <- ifelse(pred1<=alpha[i], "No", "Yes")
+  yhat2 <- ifelse(pred2<=alpha[i], "Yes", "No")
+  yhat3 <- ifelse(pred3<=alpha[i], "Yes", "No")
+  yhat4 <- ifelse(pred4<=alpha[i], "Yes", "No")
+  tb1 <- table(yhat1,College$Private[test])
+  tb2 <- table(yhat2,College$Private[test])
+  tb3 <- table(yhat3,College$Private[test])
+  tb4 <- table(yhat4,College$Private[test])
+  for(j in 1:4){
+    if(nrow(get(paste0('tb',j)))==2 && ncol(get(paste0('tb',j)))==2){
+      act <- ifelse(College$Private[test]=="Yes",1,0)
+      pre <- ifelse(get(paste0('yhat',j))=="Yes",1,0)
+      f1[i,j] <- F1_Score(act,pre)
+    }
+    else f1[i,j] <- 0
+  }
+}
+
+F1 <- matrix(NA, 2, 4)
+colnames(F1) <- c("glm", "lda", "qda", "NB")
+rownames(F1) <- c("MCC", "alpha")
+for(j in 1:4){
+  F1[1,j] <- max(f1[,j])
+  alpha.score <- which(f1[,j]==max(f1[,j]))
+  F1[2,j] <- (sum(alpha.score)-length(alpha.score))/length(alpha.score)*0.01
+}
