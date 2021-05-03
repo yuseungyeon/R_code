@@ -1,0 +1,188 @@
+homework 2
+
+library("ISLR")
+library("leaps")
+data(Wage)
+Wage <- Wage[,-c(6,11)]
+head(Wage)
+Wage <- as.data.frame(Wage)
+
+#1.
+group1 <-Wage[(Wage$logwage>median(Wage$logwage)),]
+group2 <- Wage[(Wage$logwage<=median(Wage$logwage)),]
+
+g <- regsubsets(logwage ~., data=group1)
+g.big <- regsubsets(logwage ~., data=group1, nbest=255, nvmax=11,
+                    really.big=T)
+sg <- summary(g.big)
+names(sg)
+dim(sg$which)
+sg.size <- as.numeric(rownames(sg$which))
+length(sg$rss)
+summary(sg$rss)
+
+names(sg)
+model1 <- coef(g.big, which.min(sg$cp))
+model2 <- coef(g.big, which.min(sg$bic))
+RES <-  matrix(0, 17, 3)
+gfull <- lm(logwage ~., data=group1)
+RES[,1] <- gfull$coef
+full.names <- names(gfull$coef)
+for (i in 1:2) {
+  model <- get(paste("model", i, sep=""))
+  w <- match(names(model), full.names)
+  RES[w, (i+1)] <- model
+}
+rownames(RES) <- full.names
+colnames(RES) <- c("full","cp", "bic")
+RES
+
+#2.
+RNGkind(sample.kind = "Rounding")
+set.seed(111)
+u1 <- sample(rep(seq(10), length=sum(Wage$logwage>median(Wage$logwage))))
+u2 <- sample(rep(seq(10), length=sum(Wage$logwage<=median(Wage$logwage))))
+
+predict.regsubsets <- function(object ,newdata, id, ...){
+  form <- as.formula(object$call[[2]])
+  mat <- model.matrix(form, newdata)
+  coefi <- coef(object, id=id)
+  mat[ ,names(coefi)]%*%coefi
+}
+
+PE1 <- matrix(NA , 10, 15)
+colnames(PE1) <- paste(1:15)
+
+for (i in 1:10) {
+  fit <- regsubsets(logwage ~ ., data=Wage[u1!=i, ], nvmax=15)
+  for (j in 1:15) {
+    pred <- predict(fit, Wage[u1==i, ], id = j)
+    PE1[i, j] <- sqrt(mean((Wage$logwage[u1==i] - pred)^2))
+  }
+}
+summary(fit)
+avg1 <- apply(sqrt(PE1), 2, mean)
+which.min(avg1)
+
+PE2 <- matrix(NA , 10, 15)
+colnames(PE2) <- paste(1:15)
+
+for (i in 1:10) {
+  fit <- regsubsets(logwage ~ ., data=Wage[u2!=i, ], nvmax=15)
+  for (j in 1:15) {
+    pred <- predict(fit, Wage[u2==i, ], id = j)
+    PE2[i, j] <- sqrt(mean((Wage$logwage[u2==i] - pred)^2))
+  }
+}
+summary(fit)
+avg2 <- apply(sqrt(PE2), 2, mean)
+which.min(avg2)
+
+######################################
+data(NCI60)
+x <- NCI60$data
+RNGkind(sample.kind = "Rounding")
+set.seed(123)
+beta <- rep(0, ncol(x))
+beta[1:50] <- runif(50, -2, 2)
+y <- x %*% beta + rnorm(nrow(x))
+lambda <- 10^seq(2, -2, length=300)
+foldid <- sample(rep(seq(5), length=length(y)))
+
+#3.
+library(glmnet)
+alpha <- seq(0, 1, 0.05)
+cvm = NULL
+for(i in 1:length(alpha)){
+  fit <- cv.glmnet(x, y, alpha=alpha[i],lambda=lambda, foldid=foldid)
+  cvm[i] <- min(fit$cvm)
+}
+a <- alpha[which.min(cvm)]
+fit1 <- cv.glmnet(x, y, alpha=a, foldid=foldid)
+lse <- coef(fit1, s="lambda.1se")
+minn <- coef(fit1, s="lambda.min")
+
+fit1$lambda.min
+fit1$lambda.1se
+c(sum(as.matrix(lse)!=0), sum(as.matrix(minn)!=0))
+
+#4.
+pred = matrix(0,5,2)
+colnames(pred) <- c("min", "1se")
+pred1<- pred2 <- 100
+
+for(i in 1:5){
+  tran = which(foldid!=i)
+  cvmodel <- cv.glmnet(x,y,alpha=1, subset=tran,lambda=lambda, foldid=foldid)
+  bhat1 <- coef(cvmodel, s="lambda.min")
+  bhat2 <- coef(cvmodel, s="lambda.1se")
+  wh1 <- which(as.matrix(bhat1)!=0)
+  wh2 <- which(as.matrix(bhat2)!=0)
+  w1 <- wh1[-1]-1; w2 <- wh2[-1]-1
+  bhat3<- bhat4 <- rep(0,ncol(x))
+  bhat3[wh1] <- lm(y~x[,w1], subset=tran)$coef
+  bhat4[wh2] <- lm(y~x[,w2], subset=tran)$coef
+
+  pred[i,1] <- sqrt(mean((y-x%*%bhat3)[-tran]^2))
+  pred[i,2] <- sqrt(mean((y-x%*%bhat4)[-tran]^2))
+  if(pred[i,1]<=pred1){
+    cvmodel_min = cvmodel
+    pred1 = pred[i,1]
+  }
+  if(pred[i,1]<=pred2){
+    cvmodel_1se = cvmodel
+    pred2 = pred[i,2]
+  }
+}
+
+lse <- coef(cvmodel_1se, s="lambda.1se")
+minn <- coef(cvmodel_min, s="lambda.min")
+
+cvmodel_1se$lambda.1se
+cvmodel_min$lambda.min
+c(sum(as.matrix(lse)!=0), sum(as.matrix(minn)!=0))
+
+
+#5.
+alpha <- seq(0, 1, 0.05)
+
+cvm_1se = matrix(0,length(alpha), 5)
+rownames(cvm_1se) <- alpha
+
+cvm_min = matrix(0,length(alpha), 5)
+rownames(cvm_min) <- alpha
+
+for(j in 3:length(alpha)){
+  for(i in 1:5){
+    tran = which(foldid!=i)
+    cvmodel <- cv.glmnet(x, y, alpha=alpha[j],subset=tran,lambda=lambda,foldid=foldid)
+    bhat1 <- coef(cvmodel, s="lambda.min")
+    bhat2 <- coef(cvmodel, s="lambda.1se")
+    wh1 <- which(as.matrix(bhat1)!=0)
+    wh2 <- which(as.matrix(bhat2)!=0)
+    w1 <- wh1[-1]-1; w2 <- wh2[-1]-1
+    bhat3<- bhat4 <- rep(0,ncol(x))
+    bhat3[wh1] <- lm(y~x[,w1], subset=tran)$coef
+    bhat4[wh2] <- lm(y~x[,w2], subset=tran)$coef
+    
+    cvm_min[j,i] <- sqrt(mean((y-x%*%bhat3)[-tran]^2))
+    cvm_1se[j,i] <- sqrt(mean((y-x%*%bhat4)[-tran]^2))
+  }
+}
+is.na(cvm_min) <- !cvm_min
+is.na(cvm_1se) <- !cvm_1se
+cvm_min <- na.omit(data.frame(cvm_min))
+cvm_1se <- na.omit(data.frame(cvm_1se))
+
+which(cvm_min==min(cvm_min), arr.ind=TRUE) #1, 5
+which(cvm_1se==min(cvm_1se), arr.ind=TRUE) #0.2, 5
+
+cvmodel_min <- cv.glmnet(x, y, alpha=1,subset=which(foldid!=5),lambda=lambda,foldid=foldid)
+cvmodel_1se <- cv.glmnet(x, y, alpha=0.2,subset=which(foldid!=5),lambda=lambda,foldid=foldid)
+
+lse <- coef(cvmodel_1se, s="lambda.1se")
+minn <- coef(cvmodel_min, s="lambda.min")
+
+cvmodel_min$lambda.min
+cvmodel_1se$lambda.1se
+c(sum(as.matrix(lse)!=0), sum(as.matrix(minn)!=0))
