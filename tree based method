@@ -1,0 +1,222 @@
+homework 4
+
+library(ISLR)
+data(College)
+RNGkind(sample.kind = "Rounding")
+set.seed(1111)
+id <- rep(c("tr", "te"), c(600, 177))
+index <- matrix(id, length(id), 100)
+index <- apply(index, 2, sample)
+
+#1.
+fun_acc <- function(tp, tn, fp, fn) {
+  ac <- (tp+tn)/(tp+tn+fp+fn)
+}
+
+fun_mcc <- function(tp, tn, fp, fn) {
+  (tp*tn-fp*fn)/sqrt((tp+fp)*(tp+fn)*(tn+fp)*(tn+fn))
+}
+
+fun_f1 <- function(tp, fp, fn){
+  2*tp/(2*tp+fp+fn)
+}
+
+#2.
+library(e1071)
+library(MASS)
+lda_acc <- NULL
+lda_mcc <- NULL
+lda_f1 <- NULL
+for(i in 1:ncol(index)){
+  lmodel <- lda(Private~.,data=College, subset=c(index[,i]=="tr"))
+  ped <- predict(lmodel,College,type="response")$class[c(index[,i]=="te")]
+  lda_table <- table(College$Private[c(index[,i]=="te")], ped)
+  lda_tp <- lda_table[2,2]
+  lda_tn <- lda_table[1,1]
+  lda_fp <- lda_table[1,2]
+  lda_fn <- lda_table[2,1]
+  lda_acc[i] <- fun_acc(lda_tp, lda_tn, lda_fp, lda_fn)
+  lda_mcc[i] <- fun_mcc(lda_tp, lda_tn, lda_fp, lda_fn)
+  lda_f1[i] <- fun_f1(lda_tp, lda_fp, lda_fn)
+}
+mean(lda_acc)
+mean(lda_mcc)
+mean(lda_f1)
+
+qda_acc <- NULL
+qda_mcc <- NULL
+qda_f1 <- NULL
+for(i in 1:ncol(index)){
+  qmodel <- qda(Private~.,data=College, subset=c(index[,i]=="tr"))
+  ped <- predict(qmodel,College,type="response")$class[c(index[,i]=="te")]
+  qda_table <- table(College$Private[c(index[,i]=="te")], ped)
+  qda_tp <- qda_table[2,2]
+  qda_tn <- qda_table[1,1]
+  qda_fp <- qda_table[1,2]
+  qda_fn <- qda_table[2,1]
+  qda_acc[i] <- fun_acc(qda_tp, qda_tn, qda_fp, qda_fn)
+  qda_mcc[i] <- fun_mcc(qda_tp, qda_tn, qda_fp, qda_fn)
+  qda_f1[i] <- fun_f1(qda_tp, qda_fp, qda_fn)
+}
+mean(qda_acc)
+mean(qda_mcc)
+mean(qda_f1)
+
+nda_acc <- NULL
+nda_mcc <- NULL
+nda_f1 <- NULL
+for(i in 1:ncol(index)){
+  nmodel <- naiveBayes(Private~.,data=College, subset=c(index[,i]=="tr"))
+  ped <- predict(nmodel,College)[c(index[,i]=="te")]
+  nda_table <- table(College$Private[c(index[,i]=="te")], ped)
+  nda_tp <- nda_table[2,2]
+  nda_tn <- nda_table[1,1]
+  nda_fp <- nda_table[1,2]
+  nda_fn <- nda_table[2,1]
+  nda_acc[i] <- fun_acc(nda_tp, nda_tn, nda_fp, nda_fn)
+  nda_mcc[i] <- fun_mcc(nda_tp, nda_tn, nda_fp, nda_fn)
+  nda_f1[i] <- fun_f1(nda_tp, nda_fp, nda_fn)
+}
+mean(nda_acc)
+mean(nda_mcc)
+mean(nda_f1)
+
+
+#3.
+library(tree)
+tree_acc <- NULL
+tree_mcc <- NULL
+tree_f1 <- NULL
+for(i in 1:ncol(index)){
+  tmodel <- tree(Private~.,data=College, subset=c(index[,i]=="tr"))
+  ped <- predict(tmodel,College, type="class")[c(index[,i]=="te")]
+  tree_table <- table(College$Private[c(index[,i]=="te")], ped)
+  tree_tp <- tree_table[2,2]
+  tree_tn <- tree_table[1,1]
+  tree_fp <- tree_table[1,2]
+  tree_fn <- tree_table[2,1]
+  tree_acc[i] <- fun_acc(tree_tp, tree_tn, tree_fp, tree_fn)
+  tree_mcc[i] <- fun_mcc(tree_tp, tree_tn, tree_fp, tree_fn)
+  tree_f1[i] <- fun_f1(tree_tp, tree_fp, tree_fn)
+}
+mean(tree_acc)
+mean(tree_mcc)
+mean(tree_f1)
+
+
+#4.
+RNGkind(sample.kind = "Rounding")
+set.seed(4444)
+cv.id <- rep(seq(10), 60)
+cv.index <- matrix(cv.id, length(cv.id), 100)
+cv.index <- apply(cv.index, 2, sample)
+
+cv_acc <- NULL
+cv_mcc <- NULL
+cv_f1 <- NULL
+for(i in 1:ncol(cv.index)){
+  cv.train <- tree(Private~.,data=College, subset=c(index[,i]=="tr"))
+  cv.college <- cv.tree(cv.train, rand=cv.index[,i] ,FUN=prune.misclass)
+  w <- max(cv.college$size[which.min(cv.college$dev)])
+  prune.college <- prune.misclass(cv.train, best=w)
+  ped <- predict(prune.college,College,type="class")[c(index[,i]=="te")]
+  cv_table <- table(College$Private[c(index[,i]=="te")], ped)
+  cv_tp <- cv_table[2,2]
+  cv_tn <- cv_table[1,1]
+  cv_fp <- cv_table[1,2]
+  cv_fn <- cv_table[2,1]
+  cv_acc[i] <- fun_acc(cv_tp, cv_tn, cv_fp, cv_fn)
+  cv_mcc[i] <- fun_mcc(cv_tp, cv_tn, cv_fp, cv_fn)
+  cv_f1[i] <- fun_f1(cv_tp, cv_fp, cv_fn)
+}
+mean(cv_acc)
+mean(cv_mcc)
+mean(cv_f1)
+
+#5.
+RNGkind(sample.kind = "Rounding")
+set.seed(5555)
+bt.index <- array(0, c(600, 300, 100))
+bag_acc <- NULL
+bag_mcc <- NULL
+bag_f1 <- NULL
+for (t in 1:100) {
+  for (b in 1:300) {
+    u <- unique(sample(1:600, replace=TRUE))
+    bt.index[u, b, t] <- 1
+  }
+}
+for(t in 1:100){
+  train <- College[c(index[,t]=="tr"),]
+  test <- College[c(index[,t]=="te"),]
+  vote <- rep(0, nrow(test))
+  for(b in 1:300){
+    bmodel <- tree(Private~.,data=train, subset=c(bt.index[,b,t]==1))
+    ped <- predict(bmodel, test, type="class")
+    vote <- vote+(ped=="Yes")
+  }
+  preds <- rep("Yes", length(vote))
+  preds[vote/300<0.5] <- "No"
+  bag_table <- table(test$Private, preds)
+  bag_tp <- bag_table[2,2]
+  bag_tn <- bag_table[1,1]
+  bag_fp <- bag_table[1,2]
+  bag_fn <- bag_table[2,1]
+  bag_acc[t] <- fun_acc(bag_tp, bag_tn, bag_fp, bag_fn)
+  bag_mcc[t] <- fun_mcc(bag_tp, bag_tn, bag_fp, bag_fn)
+  bag_f1[t] <- fun_f1(bag_tp, bag_fp, bag_fn)
+}
+mean(bag_acc)
+mean(bag_mcc)
+mean(bag_f1)
+
+#6.
+#m = 1, 2, 3, 4, 5, 6 ntree=1000,
+library(randomForest)
+rf_acc <- NULL
+rf_mcc <- NULL
+rf_f1 <- NULL
+rf1.conf <- rf2.conf <- rf3.conf <- rf4.conf <- rf5.conf <- rf6.conf <- NULL
+for(i in 1:ncol(cv.index)){
+  train <- College[c(index[,i]=="tr"),]
+  test <- College[c(index[,i]=="te"),]
+  for(j in 1:10){
+    rf1 <- randomForest(x=train[c(cv.index[,i]!=j),-1], y=train[c(cv.index[,i]!=j),1], 
+                        xtest=train[c(cv.index[,i]==j),-1], ytest=train[c(cv.index[,i]==j),1], mtry=1, importance = TRUE)
+    rf2 <- randomForest(x=train[c(cv.index[,i]!=j),-1], y=train[c(cv.index[,i]!=j),1], 
+                        xtest=train[c(cv.index[,i]==j),-1], ytest=train[c(cv.index[,i]==j),1], mtry=2, importance = TRUE)
+    rf3 <- randomForest(x=train[c(cv.index[,i]!=j),-1], y=train[c(cv.index[,i]!=j),1], 
+                        xtest=train[c(cv.index[,i]==j),-1], ytest=train[c(cv.index[,i]==j),1], mtry=3, importance = TRUE)
+    rf4 <- randomForest(x=train[c(cv.index[,i]!=j),-1], y=train[c(cv.index[,i]!=j),1], 
+                        xtest=train[c(cv.index[,i]==j),-1], ytest=train[c(cv.index[,i]==j),1], mtry=4, importance = TRUE)
+    rf5 <- randomForest(x=train[c(cv.index[,i]!=j),-1], y=train[c(cv.index[,i]!=j),1], 
+                        xtest=train[c(cv.index[,i]==j),-1], ytest=train[c(cv.index[,i]==j),1], mtry=5, importance = TRUE)
+    rf6 <- randomForest(x=train[c(cv.index[,i]!=j),-1], y=train[c(cv.index[,i]!=j),1], 
+                        xtest=train[c(cv.index[,i]==j),-1], ytest=train[c(cv.index[,i]==j),1], mtry=6, importance = TRUE)
+    
+    rf1.conf[j] <- 1-sum(diag(rf1$test$confusion[1:2,1:2]))/sum((rf1$test$confusion[1:2,1:2]))
+    rf2.conf[j] <- 1-sum(diag(rf2$test$confusion[1:2,1:2]))/sum((rf2$test$confusion[1:2,1:2]))
+    rf3.conf[j] <- 1-sum(diag(rf3$test$confusion[1:2,1:2]))/sum((rf3$test$confusion[1:2,1:2]))
+    rf4.conf[j] <- 1-sum(diag(rf4$test$confusion[1:2,1:2]))/sum((rf4$test$confusion[1:2,1:2]))
+    rf5.conf[j] <- 1-sum(diag(rf5$test$confusion[1:2,1:2]))/sum((rf5$test$confusion[1:2,1:2]))
+    rf6.conf[j] <- 1-sum(diag(rf6$test$confusion[1:2,1:2]))/sum((rf6$test$confusion[1:2,1:2]))
+  }
+  rf.mean <- NULL
+  for(k in 1:6){
+    rf.mean[k] <- mean(get(paste0('rf',k, '.conf')))
+  }
+  w <- which.min(min(rf.mean))
+  best <- randomForest(x=train[,-1], y=train[,1], xtest=test[,-1], ytest=test[,1],
+                       mtry=w, importance = TRUE, ntree=1000)
+  rf_table <- best$test$confusion[1:2,1:2]
+  rf_tp <- rf_table[2,2]
+  rf_tn <- rf_table[1,1]
+  rf_fp <- rf_table[1,2]
+  rf_fn <- rf_table[2,1]
+  rf_acc[i] <- fun_acc(rf_tp, rf_tn, rf_fp, rf_fn)
+  rf_mcc[i] <- fun_mcc(rf_tp, rf_tn, rf_fp, rf_fn)
+  rf_f1[i] <- fun_f1(rf_tp, rf_fp, rf_fn)
+}
+mean(rf_acc)
+mean(rf_mcc)
+mean(rf_f1)
