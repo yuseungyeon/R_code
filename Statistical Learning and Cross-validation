@@ -1,0 +1,145 @@
+homework1
+
+library("MASS")
+data(Boston)
+y <- Boston[-55,1]
+x <- Boston[-55, -c(1,4,8,9)]
+x <- as.matrix(scale(x))
+
+RNGkind(sample.kind = "Rounding")
+
+set.seed(123)
+tran <- sample(nrow(x), 450)
+
+#1
+
+PE <- matrix(NA, 15, ncol=10)
+colnames(PE) <- colnames(x)
+for(j in 1:ncol(x)){
+  for (k in 1:15){
+    g <- lm(y~poly(x[,j], k), subset=tran)
+    PE[k,j] = sqrt(mean((y-predict(g,data.frame(x)))[-tran]^2))
+  }
+}
+
+PE
+
+result.poly <- matrix(NA, 2, ncol(x))
+rownames(result.poly) <- c("index", "value")
+colnames(result.poly) <- colnames(x)
+
+result.poly[1,]=apply(PE,2,FUN=which.min)
+result.poly[2,]=apply(PE,2,min)
+result.poly
+
+#2
+
+PE2 <- matrix(NA, 15,ncol(x))
+for(j in 1:ncol(x)){
+  for (k in 2:15){
+    cube <- smooth.spline(x[,j],y, df=k)
+    PE2[k,j] = sqrt(mean((y-predict(cube,x)$y)[-tran]^2))
+  }
+}
+
+result.smooth <- matrix(NA, 2, ncol(x))
+rownames(result.smooth) <- c("index", "value")
+colnames(result.smooth) <- colnames(x)
+
+result.smooth[1,]=apply(PE2,2,FUN=which.min)
+result.smooth[2,]=apply(PE2[-1,],2,min)
+result.smooth
+
+#3
+
+PE3 <- matrix(NA, 15, ncol(x))
+for(j in 1:ncol(x)){
+  for (k in 2:15){
+    g <- lm(y~cut(x[,j],k), subset=tran)
+    pred <- predict(g,data.frame(x))
+    PE3[k,j] = sqrt(mean((y-pred)[-tran]^2))
+  }
+}
+PE3
+
+result.cut <- matrix(NA, 2, ncol(x))
+rownames(result.cut) <- c("index", "value")
+colnames(result.cut) <- colnames(x)
+
+result.cut[1,]=apply(PE3,2,FUN=which.min)
+result.cut[2,]=apply(PE3[-1,],2,min)
+result.cut
+
+#4
+
+RNGkind(sample.kind = "Rounding")
+set.seed(123)
+u <- sample(rep(seq(10), length=length(y)))
+
+##poly
+KCV1 <- matrix(0, 15, 10)
+colnames(KCV1) <- colnames(x)
+
+for (j in 1:10) {
+  for (i in 1:15) {
+    PE <- NULL
+    for (k in 1:10) {
+      tran <- which(u!=k)
+      g <- lm(y ~ poly(x[,j], i), subset=tran)
+      PE[k] <- sqrt(mean((y - predict(g, data.frame(x)))[-tran]^2))
+    }
+    KCV1[i, j] <- mean(PE)
+  }
+}
+KCV1
+
+##smooth.spline
+KCV2 <- matrix(NA, 15, 10)
+colnames(KCV2) <- colnames(x)
+
+for (j in 1:10) {
+  u <- sample(rep(seq(10), length=length(y)))
+  for (i in 2:15) {
+    PE <- NULL
+    for (k in 1:10) {
+      tran <- which(u!=k)
+      cube <- smooth.spline(x[,j],y, df=i)
+      PE[k] <- sqrt(mean((y - predict(cube, x)$y)[-tran]^2))
+    }
+    KCV2[i, j] <- mean(PE)
+  }
+}
+KCV2<- KCV2[-1,]
+
+##cut 오류가 뜨지 않을 경우의 코드
+KCV3 <- matrix(NA, 15, 10)
+colnames(KCV3) <- colnames(x)
+PE <- NULL
+for (j in 1:ncol(x)) {
+  for (i in 2:15) {
+    for (k in 1:10) {
+      tran <- which(u!=k)
+      g <- lm(y ~ cut(x[,j], i), subset=tran)
+      pred <- predict(g,data.frame(x))
+      PE[k] <- sqrt(mean((y - pred)[-tran]^2))
+    }
+    KCV3[i, j] <- mean(PE)
+  }
+}
+KCV3[-1,]
+
+result <- matrix(NA, 6, ncol(x))
+rownames(result) <- rep(c("index", "value"),3)
+colnames(result) <- colnames(x)
+
+result[1,]=apply(KCV1,2,FUN=which.min)
+result[2,]=apply(KCV1,2,min)
+result[3,]=apply(KCV2,2,FUN=which.min)
+result[4,]=apply(KCV2,2,min)
+result[5,]=apply(KCV3,2,FUN=which.min)
+result[6,]=apply(KCV3,2, min, na.rm=TRUE)
+result
+
+min(rbind(result.poly, result.smooth, result.cut)[c(2,4,6),])
+
+min(result[c(2,4,6),])
