@@ -1,0 +1,58 @@
+---
+title: "homework4"
+author: "yuseungyeon"
+date: "2020년 10월 11일"
+output: html_document
+---
+```{r library, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(forecast)
+library(ggplot2)
+library(gridExtra)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### (1) phi=0.8 과  AR(1) 모형을 simulation 하세요 (n=1000). 시계열 그림, SACF, SPACF 그래프를 그리세요. 
+```{r num1}
+AR1 <- list(order = c(1,0,0), ar=0.8, sd=1)
+sim_AR1 <- arima.sim(n=1000, model=AR1)
+plot1 <- autoplot(sim_AR1)+ggtitle("AR(1) with phi=0.8")
+plot1_acf <- ggAcf(sim_AR1)+ggtitle("ACF")
+plot1_pacf <- ggPacf(sim_AR1)+ggtitle("PACF")
+plot1
+grid.arrange(plot1_acf, plot1_pacf)
+```
+
+시계열 그림과 SACF, SPACF 그림을 그린 결과이다.
+SACF의 경우 순차적으로 점점 값이 감소하는 것을 볼 수 있으며, SPACF는 AR(1)모형의 그래프이므로 시차 2 이후 절단된 모습이 나타나는 것을 확인할 수 있다.
+
+#### (2) phi=-0.8일 때, (1)을 반복하세요. 
+```{r num2}
+AR2 <- list(order = c(1,0,0), ar=-0.8, sd=1)
+sim_AR2 <- arima.sim(n=1000, model =AR2)
+plot2 <- autoplot(sim_AR2)+ggtitle("AR(1) with phi=0.8")
+plot2_acf <- ggAcf(sim_AR2)+ggtitle("ACF")
+plot2_pacf <- ggPacf(sim_AR2)+ggtitle("PACF")
+plot2
+grid.arrange(plot2_acf, plot2_pacf)
+```
+
+시계열 그림의 경우, (1)보다 더 진동된 형태를 가지고 있다는 것을 확인할 수 있다.
+또한 SACF의 경우 진동하면서 값이 감소되고 있으며, SPACF의 경우 AR(1) 모형의 그래프이므로 시차 2 이후 절단된 모습이 나타나는 것을 확인할 수 있다.
+
+#### (3) AR(2)를 phi1 과 phi2를 임의로 설정하여 simulation하고 (1)을 반복하세요. 
+```{r num3}
+AR3 <- arima.sim(n=1000, list(ar=c(0.7, -0.4)))
+plot3 <- autoplot(AR3)+ggtitle("AR(2) with phi1=0.7, phi=-0.4")
+plot3_acf <- ggAcf(AR3)+ggtitle("ACF")
+plot3_pacf <- ggPacf(AR3)+ggtitle("PACF")
+plot3
+grid.arrange(plot3_acf, plot3_pacf, ncol=2)
+```
+
+시계열 그림의 경우 (1)모형보다 더 진동되며 (2)모형보다는 덜 진동되는 형태를 가지고 있다.
+SACF 그래프를 살펴보면 진폭이 점차 줄어드는 sin 함수의 형태를 가지고 있다는 것을 확인할 수 있다. 이 경우 우리는 허근을 가지고 있다는 것을 알 수 있다.
+SPACF는 AR(2)의 모형이 그래프이므로 시차 3 이후 절단된 모습이 나타나는 것을 알 수 있다.
