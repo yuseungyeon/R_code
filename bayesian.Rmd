@@ -1,0 +1,74 @@
+---
+title: "bayesian"
+author: "yuseungyeon"
+date: "2021년 5월 17일"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Q5.
+
+```{r theta}
+theta = NULL
+theta[1] = 1
+```
+
+```{r metropolis}
+par(mfrow=c(3,2))
+
+for( j in c(0.1,1,2,4,5,10)){
+  accept = 0
+  
+  for( i in 2:5000){
+    theta_cur = theta[i-1]
+    theta_prop = rnorm(1, theta_cur, j)
+    
+    num = (1+theta_prop^2/5)^(-(5+1)/2)
+    den = (1+theta_cur^2/5)^(-(5+1)/2)
+    
+    if(runif(1)>min(num/den, 1)){
+      theta[i] = theta_cur
+    }
+    else{
+      theta[i] = theta_prop
+      accept = accept + 1
+    }
+  }
+  plot(theta, xlab='iterations', ylab=expression(theta), type='l', main=paste('sd:',j,'/Acceptance prob', accept/5000))
+}
+```
+
+## Q.6
+```{r theta6}
+theta6 = NULL
+theta6[1] = 1
+```
+
+```{r graph}
+par(mfrow=c(1,2))
+for(j in c(2,10)){
+  accept = 0
+  
+  for(i in 2:5000){
+    theta_cur = theta6[i-1]
+    theta_prop = rchisq(1,j)
+    
+    num = theta_prop^(-2.5)*exp(-2/theta_prop)
+    den = theta_cur^(-2.5)*exp(-2/theta_cur)
+    
+    if(runif(1)>min(num/den, 1)){
+      theta6[i] = theta_cur
+    }
+    else{
+      theta6[i] = theta_prop
+      accept= accept + 1
+    }
+  }
+  burn_in = tail(theta6, 2500)
+  thin = theta6[seq(1,length(burn_in), by=5)]
+  plot(thin, xlab='iterations', ylab=expression(thin), type='l', main=paste('df:',j,'/Acceptance prob', accept/5000)) 
+}
+```
