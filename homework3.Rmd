@@ -1,0 +1,59 @@
+---
+title: "homework3"
+author: "yuseungyeon"
+date: "2020년 9월 18일"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE, warning=F}
+setwd("D:/2020_2학기/시계열분석")
+data <-read.csv('loadregr.csv')
+data_ts<-ts(data$MKw, start=c(1970, 5), end=c(1979, 12), frequency=12)
+library(tidyverse)
+library(forecast)
+library(fpp)
+library(aTSA)
+library(seasonal)
+library(timsac)
+```
+
+먼저 데이터를 불러준다.
+
+#### 1. Draw time series plot
+
+```{r cars}
+autoplot(data_ts)
+autoplot(stl(data_ts, s.window="periodic", robust = TRUE))
+```
+
+먼저, 데이터의 전체적인 형태를 살펴본다. 시간이 지날수록 점차 증가하며 계절성을 가지고 있는 것으로 보인다.
+이를 다음 그래프와 같이 살펴보면 트렌드는 시간에 따라 증가하고 있으며, 계절성을 가지고 있는 것을 자세히 확인할 수 있다.
+
+#### 2. Fit decomposition model and draw a plot with the original data, seasonally adjusted, trend-cycle component all together.
+
+```{r num2, echo=FALSE}
+fit <- data_ts %>% seas(x11="")
+autoplot(data_ts, series = "Data") + autolayer(trendcycle(fit), series="Trend") + autolayer(seasadj(fit), series = "Seasonally Adjusted") + xlab("year") + ylab("Mkw") + scale_colour_manual(values = c("gray", "blue", "red"), breaks=c("Data", "Seasonally Adjusted", "Trend"))
+```
+
+original data와 비교했을 때 계절성이 제거된 데이터는 보다 완만한 형태로 그려져있는 것을 보여주므로 계절성의 영향이 크다는 것을 알 수 있다. 추세는 앞서 살펴본 것처럼 시간이 흐름에 따라 증가형태를 보여주고 있다.
+
+#### 3. Draw sub-series seasonal effect graph in each month.
+
+```{r}
+fit %>%  seasonal() %>% ggsubseriesplot() + ylab("Seasonal")
+```
+
+월별 값 변화를 그려본 그래프이다. 1,2,6,8,9,10,12월은 대체적으로 시간이 지날수록 값이 작아지는 형태를 보여주며, 3,4,5,7,11월은 대체적으로 시간이 지날수록 값이 증가하는 형태를 보여준다.
+
+#### 4. Draw a polar seasonal plot.
+
+```{r}
+ggseasonplot(data_ts, polar=TRUE) + ylab("Mkw") + ggtitle("Polar seasonal plot")
+```
+
+그래프를 그려보았을 때 시간이 지날수록 계절적 영향을 많이 끼치는 것을 볼 수 있다.
