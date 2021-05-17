@@ -1,0 +1,87 @@
+---
+title: "homework2"
+author: "yuseungyeon"
+date: "2020년 9월 13일"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r read, echo=FALSE}
+data <- read.csv('spot.csv')
+```
+
+#### 1. Draw time seires graph of sun spot. Do you see any cycle or seasonal effect?
+
+일정 주기를 가지고 반복되는 형태를 보이고 있으므로 순환변동 형태를 보이고 있다.
+```{r num1, echo=TRUE}
+require(graphics)
+data.ts = ts(data=data, start=c(1960,1), frequency = 4)
+data.ts
+plot(data.ts, mai="time series of graph")
+```
+
+
+#### 2. Try 5-point moving average smoothing. Draw the plot of original graph in black, 4 point MA smoothing in red, mean value blue.
+```{r MA, echo=TRUE}
+ff <- filter(data.ts, filter=rep(1/5,5))
+plot(ff, main="5 point MA")
+plot(data.ts, mai="time series of graph with 4 point MA, mean")
+ff1 <- filter(data.ts, filter=rep(1,4)/5, method="convolution", sides=1)
+lines(ff1, col="red")
+abline(h=mean(data[,1]), col="blue")
+```
+
+#### 3. Check the residual plot, check the staionary and the test the independence assumption. Carefully interpret the residual analysis.
+초기의 값들은 잔차가 유의수준을 넘어가고 있다. 그렇지만 후반으로 갈수록 잔차가 유의수준을 벗어나지 않고 있다. 여기에서 우리는 정상성을 만족하지 않는다고 판단한다. 
+
+```{r library, echo=FALSE}
+library(forecast)
+require(graphics)
+```
+```{r stationary}
+library(forecast)
+res = ff[-1:-3,]-data.ts[-1:-3,]
+tsdisplay(res ,main="Residual by MA(4) for data")
+```
+
+H0 : 독립성을 가지고 있다. vs H1 : not H0 
+Box-Pierce test p-value의 값이 0.05를 넘지 않으므로 H0를 기각한다. 데이터는 독립성을 가지지 않는 것으로 볼 수 있다.
+```{r independence}
+Box.test(res, type="Box-Pierce")
+```
+
+
+#### 4. Fit the simple exponential smoothing with alpha=0.1 and with the optimized alpha. If you think we need a trend, or seasonal, or both try them. Please address all the modeling and show how you find the best exponential smoothing model for spot data.
+추세나 계절변동은 보이지 않는 것으로 간주하여 지수평활법을 적용한다.
+예측값은 후자가 더 유사한 것으로 보이므로 ho에 대해 좀 더 자세히 살펴보기로 한다.
+```{r exponential}
+ha <- HoltWinters(data.ts, alpha=0.1, beta=FALSE, gamma=FALSE)
+ho <- HoltWinters(data.ts, beta=FALSE, gamma=FALSE)
+plot(ha)
+plot(ho)
+```
+
+앞서 살펴본 모형처럼 초기의 값들은 잔차가 유의수준을 넘어가고 있다. 그렇지만 후반으로 갈수록 잔차가 유의수준을 벗어나지 않고 있다. 여기에서 우리는 정상성을 만족하지 않는다고 판단한다. 
+```{r residual stationary}
+fo <- forecast(ho)
+tsdisplay(fo$residual)
+```
+H0 : 독립성을 가지고 있다. vs H1 : not H0 
+Box-Pierce test p-value의 값이 0.05를 넘지 않으므로 H0를 기각한다. 데이터는 독립성을 가지지 않는 것으로 볼 수 있다.
+```{r residual independence}
+Box.test(fo$residuals, type="Box-Pierce")
+```
+
+
+#### 5. From your best model, find the forecast of next 4 points.
+4점의 예측은 모두 같은 값으로 나오지만, 예측구간은 점차 넓어지는 것을 볼 수 있다.
+```{r forecast}
+fo <- forecast(ho, h=4)
+fo
+plot(fo)
+lines(fo$fitted, col="red")
+```
+
